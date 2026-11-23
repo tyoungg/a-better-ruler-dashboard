@@ -7,40 +7,64 @@ from plotly.subplots import make_subplots
 import requests
 import io
 
+# Page Configuration
 st.set_page_config(
-    page_title="A Better Ruler | 50 States Economic Dashboard",
+    page_title="A Better Ruler | Economic Dashboard",
     page_icon="📏",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# Custom Styling
 st.markdown("""
 <style>
+    .hero-container {
+        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        color: white;
+        padding: 28px;
+        border-radius: 12px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .hero-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #ffffff;
+    }
+    .hero-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.95;
+        line-height: 1.5;
+        max-width: 950px;
+    }
     .metric-card {
-        background-color: #f8f9fa;
-        padding: 16px;
-        border-radius: 8px;
-        border-left: 5px solid #2e6fdf;
+        background-color: #f8fafc;
+        padding: 18px;
+        border-radius: 10px;
+        border-left: 5px solid #2563eb;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         margin-bottom: 12px;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
+        gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
         height: 48px;
         white-space: pre-wrap;
-        background-color: #f1f3f5;
+        background-color: #f1f5f9;
         border-radius: 6px 6px 0px 0px;
-        padding: 8px 16px;
+        padding: 10px 16px;
+        font-weight: 600;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #2e6fdf !important;
+        background-color: #2563eb !important;
         color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
+# Helper Function for Data Loading
 FRED_BASE_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 
 def generate_fallback_series(series_id, start_year=1975, end_year=2024):
@@ -55,6 +79,16 @@ def generate_fallback_series(series_id, start_year=1975, end_year=2024):
         vals = 11.5 + 2.0 * np.sin(t * 12)
     elif series_id == 'DRCLACBS':
         vals = 3.5 + 2.5 * np.sin(t * 18)
+    elif series_id == 'GINIALLRH':
+        dates = pd.date_range(start=f"{start_year}-01-01", end=f"{end_year}-12-31", freq='YS')
+        n = len(dates)
+        t = np.linspace(0, 1, n)
+        vals = 0.39 + 0.10 * (t ** 0.8)
+    elif series_id in ['WFRBSTP0886', 'WFRBSN40180']:
+        dates = pd.date_range(start="1989-01-01", end=f"{end_year}-12-31", freq='3MS')
+        n = len(dates)
+        t = np.linspace(0, 1, n)
+        vals = 24.0 + 8.0 * t if series_id == 'WFRBSTP0886' else 4.2 - 1.5 * t
     else:
         vals = 100 + 10 * t
     return pd.DataFrame({series_id: vals}, index=dates)
@@ -75,942 +109,375 @@ def load_fred(series_id):
         pass
     return generate_fallback_series(series_id)
 
+# Master Data: 50 US States + 50 Major Cities
 LOCATIONS_DATA = [
-    [
-        "Alabama (Statewide)",
-        "AL",
-        "Statewide",
-        92400,
-        56900,
-        47
-    ],
-    [
-        "Birmingham, AL",
-        "AL",
-        "City",
-        94800,
-        42500,
-        52
-    ],
-    [
-        "Alaska (Statewide)",
-        "AK",
-        "Statewide",
-        112500,
-        80200,
-        39
-    ],
-    [
-        "Anchorage, AK",
-        "AK",
-        "City",
-        115200,
-        85600,
-        36
-    ],
-    [
-        "Arizona (Statewide)",
-        "AZ",
-        "Statewide",
-        108400,
-        72500,
-        43
-    ],
-    [
-        "Phoenix, AZ",
-        "AZ",
-        "City",
-        111600,
-        74900,
-        45
-    ],
-    [
-        "Arkansas (Statewide)",
-        "AR",
-        "Statewide",
-        89800,
-        52500,
-        48
-    ],
-    [
-        "Little Rock, AR",
-        "AR",
-        "City",
-        92100,
-        55800,
-        49
-    ],
-    [
-        "California (Statewide)",
-        "CA",
-        "Statewide",
-        154200,
-        85300,
-        44
-    ],
-    [
-        "Los Angeles, CA",
-        "CA",
-        "City",
-        158900,
-        76200,
-        49
-    ],
-    [
-        "Colorado (Statewide)",
-        "CO",
-        "Statewide",
-        128600,
-        87600,
-        37
-    ],
-    [
-        "Denver, CO",
-        "CO",
-        "City",
-        135400,
-        85800,
-        38
-    ],
-    [
-        "Connecticut (Statewide)",
-        "CT",
-        "Statewide",
-        139500,
-        88400,
-        39
-    ],
-    [
-        "Bridgeport, CT",
-        "CT",
-        "City",
-        142800,
-        50600,
-        56
-    ],
-    [
-        "Delaware (Statewide)",
-        "DE",
-        "Statewide",
-        115800,
-        79300,
-        41
-    ],
-    [
-        "Wilmington, DE",
-        "DE",
-        "City",
-        118400,
-        53200,
-        54
-    ],
-    [
-        "Florida (Statewide)",
-        "FL",
-        "Statewide",
-        114600,
-        67900,
-        46
-    ],
-    [
-        "Jacksonville, FL",
-        "FL",
-        "City",
-        112800,
-        64200,
-        44
-    ],
-    [
-        "Georgia (Statewide)",
-        "GA",
-        "Statewide",
-        104200,
-        71300,
-        45
-    ],
-    [
-        "Atlanta, GA",
-        "GA",
-        "City",
-        118900,
-        77600,
-        47
-    ],
-    [
-        "Hawaii (Statewide)",
-        "HI",
-        "Statewide",
-        168400,
-        88200,
-        44
-    ],
-    [
-        "Honolulu, HI",
-        "HI",
-        "City",
-        172100,
-        92600,
-        42
-    ],
-    [
-        "Idaho (Statewide)",
-        "ID",
-        "Statewide",
-        102500,
-        70200,
-        40
-    ],
-    [
-        "Boise, ID",
-        "ID",
-        "City",
-        108900,
-        74800,
-        38
-    ],
-    [
-        "Illinois (Statewide)",
-        "IL",
-        "Statewide",
-        118500,
-        78200,
-        41
-    ],
-    [
-        "Chicago, IL",
-        "IL",
-        "City",
-        126400,
-        71700,
-        47
-    ],
-    [
-        "Indiana (Statewide)",
-        "IN",
-        "Statewide",
-        94600,
-        67200,
-        42
-    ],
-    [
-        "Indianapolis, IN",
-        "IN",
-        "City",
-        98200,
-        59500,
-        48
-    ],
-    [
-        "Iowa (Statewide)",
-        "IA",
-        "Statewide",
-        93200,
-        69600,
-        38
-    ],
-    [
-        "Des Moines, IA",
-        "IA",
-        "City",
-        97500,
-        64900,
-        41
-    ],
-    [
-        "Kansas (Statewide)",
-        "KS",
-        "Statewide",
-        95800,
-        69400,
-        40
-    ],
-    [
-        "Wichita, KS",
-        "KS",
-        "City",
-        96400,
-        60800,
-        45
-    ],
-    [
-        "Kentucky (Statewide)",
-        "KY",
-        "Statewide",
-        91200,
-        58400,
-        47
-    ],
-    [
-        "Louisville, KY",
-        "KY",
-        "City",
-        94500,
-        61200,
-        46
-    ],
-    [
-        "Louisiana (Statewide)",
-        "LA",
-        "Statewide",
-        93800,
-        55400,
-        51
-    ],
-    [
-        "New Orleans, LA",
-        "LA",
-        "City",
-        99800,
-        49600,
-        56
-    ],
-    [
-        "Maine (Statewide)",
-        "ME",
-        "Statewide",
-        114200,
-        68200,
-        42
-    ],
-    [
-        "Portland, ME",
-        "ME",
-        "City",
-        128500,
-        76400,
-        39
-    ],
-    [
-        "Maryland (Statewide)",
-        "MD",
-        "Statewide",
-        138600,
-        98200,
-        38
-    ],
-    [
-        "Baltimore, MD",
-        "MD",
-        "City",
-        132400,
-        58300,
-        53
-    ],
-    [
-        "Massachusetts (Statewide)",
-        "MA",
-        "Statewide",
-        164780,
-        96500,
-        38
-    ],
-    [
-        "Boston, MA",
-        "MA",
-        "City",
-        176200,
-        86300,
-        46
-    ],
-    [
-        "Michigan (Statewide)",
-        "MI",
-        "Statewide",
-        102400,
-        68500,
-        43
-    ],
-    [
-        "Detroit, MI",
-        "MI",
-        "City",
-        98600,
-        37700,
-        69
-    ],
-    [
-        "Minnesota (Statewide)",
-        "MN",
-        "Statewide",
-        116800,
-        84300,
-        37
-    ],
-    [
-        "Minneapolis, MN",
-        "MN",
-        "City",
-        125400,
-        76800,
-        42
-    ],
-    [
-        "Mississippi (Statewide)",
-        "MS",
-        "Statewide",
-        88600,
-        52700,
-        52
-    ],
-    [
-        "Jackson, MS",
-        "MS",
-        "City",
-        90200,
-        42800,
-        58
-    ],
-    [
-        "Missouri (Statewide)",
-        "MO",
-        "Statewide",
-        95400,
-        65600,
-        42
-    ],
-    [
-        "Kansas City, MO",
-        "MO",
-        "City",
-        99800,
-        63200,
-        46
-    ],
-    [
-        "Montana (Statewide)",
-        "MT",
-        "Statewide",
-        104800,
-        66300,
-        41
-    ],
-    [
-        "Billings, MT",
-        "MT",
-        "City",
-        106200,
-        68400,
-        39
-    ],
-    [
-        "Nebraska (Statewide)",
-        "NE",
-        "Statewide",
-        94800,
-        71700,
-        37
-    ],
-    [
-        "Omaha, NE",
-        "NE",
-        "City",
-        98600,
-        68900,
-        40
-    ],
-    [
-        "Nevada (Statewide)",
-        "NV",
-        "Statewide",
-        112400,
-        71600,
-        45
-    ],
-    [
-        "Las Vegas, NV",
-        "NV",
-        "City",
-        114800,
-        67600,
-        47
-    ],
-    [
-        "New Hampshire (Statewide)",
-        "NH",
-        "Statewide",
-        132500,
-        90800,
-        34
-    ],
-    [
-        "Manchester, NH",
-        "NH",
-        "City",
-        134200,
-        74200,
-        38
-    ],
-    [
-        "New Jersey (Statewide)",
-        "NJ",
-        "Statewide",
-        146800,
-        97100,
-        37
-    ],
-    [
-        "Newark, NJ",
-        "NJ",
-        "City",
-        142500,
-        43800,
-        64
-    ],
-    [
-        "New Mexico (Statewide)",
-        "NM",
-        "Statewide",
-        96400,
-        58700,
-        49
-    ],
-    [
-        "Albuquerque, NM",
-        "NM",
-        "City",
-        98900,
-        61500,
-        46
-    ],
-    [
-        "New York (Statewide)",
-        "NY",
-        "Statewide",
-        148500,
-        81400,
-        44
-    ],
-    [
-        "New York City, NY",
-        "NY",
-        "City",
-        168900,
-        76900,
-        51
-    ],
-    [
-        "North Carolina (Statewide)",
-        "NC",
-        "Statewide",
-        104600,
-        66200,
-        44
-    ],
-    [
-        "Charlotte, NC",
-        "NC",
-        "City",
-        112400,
-        74300,
-        41
-    ],
-    [
-        "North Dakota (Statewide)",
-        "ND",
-        "Statewide",
-        96800,
-        73900,
-        36
-    ],
-    [
-        "Fargo, ND",
-        "ND",
-        "City",
-        98200,
-        65400,
-        39
-    ],
-    [
-        "Ohio (Statewide)",
-        "OH",
-        "Statewide",
-        96800,
-        66900,
-        43
-    ],
-    [
-        "Columbus, OH",
-        "OH",
-        "City",
-        102400,
-        64800,
-        46
-    ],
-    [
-        "Oklahoma (Statewide)",
-        "OK",
-        "Statewide",
-        91400,
-        61400,
-        47
-    ],
-    [
-        "Oklahoma City, OK",
-        "OK",
-        "City",
-        94200,
-        62800,
-        45
-    ],
-    [
-        "Oregon (Statewide)",
-        "OR",
-        "Statewide",
-        126400,
-        76600,
-        43
-    ],
-    [
-        "Portland, OR",
-        "OR",
-        "City",
-        138500,
-        83600,
-        40
-    ],
-    [
-        "Pennsylvania (Statewide)",
-        "PA",
-        "Statewide",
-        108400,
-        73200,
-        39
-    ],
-    [
-        "Philadelphia, PA",
-        "PA",
-        "City",
-        116200,
-        56500,
-        53
-    ],
-    [
-        "Rhode Island (Statewide)",
-        "RI",
-        "Statewide",
-        128400,
-        81800,
-        38
-    ],
-    [
-        "Providence, RI",
-        "RI",
-        "City",
-        131500,
-        61200,
-        50
-    ],
-    [
-        "South Carolina (Statewide)",
-        "SC",
-        "Statewide",
-        99800,
-        63600,
-        45
-    ],
-    [
-        "Charleston, SC",
-        "SC",
-        "City",
-        116400,
-        79400,
-        38
-    ],
-    [
-        "South Dakota (Statewide)",
-        "SD",
-        "Statewide",
-        93400,
-        69700,
-        37
-    ],
-    [
-        "Sioux Falls, SD",
-        "SD",
-        "City",
-        96800,
-        71200,
-        36
-    ],
-    [
-        "Tennessee (Statewide)",
-        "TN",
-        "Statewide",
-        98600,
-        64100,
-        44
-    ],
-    [
-        "Nashville, TN",
-        "TN",
-        "City",
-        114200,
-        71400,
-        42
-    ],
-    [
-        "Texas (Statewide)",
-        "TX",
-        "Statewide",
-        106400,
-        73000,
-        44
-    ],
-    [
-        "Houston, TX",
-        "TX",
-        "City",
-        109800,
-        60400,
-        48
-    ],
-    [
-        "Utah (Statewide)",
-        "UT",
-        "Statewide",
-        114200,
-        87600,
-        34
-    ],
-    [
-        "Salt Lake City, UT",
-        "UT",
-        "City",
-        122400,
-        73800,
-        39
-    ],
-    [
-        "Vermont (Statewide)",
-        "VT",
-        "Statewide",
-        122800,
-        74100,
-        37
-    ],
-    [
-        "Burlington, VT",
-        "VT",
-        "City",
-        131200,
-        73400,
-        41
-    ],
-    [
-        "Virginia (Statewide)",
-        "VA",
-        "Statewide",
-        126800,
-        87200,
-        38
-    ],
-    [
-        "Virginia Beach, VA",
-        "VA",
-        "City",
-        122400,
-        81800,
-        36
-    ],
-    [
-        "Washington (Statewide)",
-        "WA",
-        "Statewide",
-        138900,
-        90300,
-        37
-    ],
-    [
-        "Seattle, WA",
-        "WA",
-        "City",
-        168400,
-        115400,
-        32
-    ],
-    [
-        "West Virginia (Statewide)",
-        "WV",
-        "Statewide",
-        86400,
-        55200,
-        50
-    ],
-    [
-        "Charleston, WV",
-        "WV",
-        "City",
-        89200,
-        51400,
-        53
-    ],
-    [
-        "Wisconsin (Statewide)",
-        "WI",
-        "Statewide",
-        102400,
-        72500,
-        38
-    ],
-    [
-        "Milwaukee, WI",
-        "WI",
-        "City",
-        106800,
-        49700,
-        57
-    ],
-    [
-        "Wyoming (Statewide)",
-        "WY",
-        "Statewide",
-        99400,
-        72400,
-        36
-    ],
-    [
-        "Cheyenne, WY",
-        "WY",
-        "City",
-        101800,
-        70600,
-        35
-    ]
+    {'Location': 'Alabama (Statewide)', 'Type': 'State', 'State_Code': 'AL', 'Basic_Needs': 91200, 'Median_Income': 59600, 'ALICE_Pct': 47},
+    {'Location': 'Birmingham, AL', 'Type': 'City', 'State_Code': 'AL', 'Basic_Needs': 88400, 'Median_Income': 42500, 'ALICE_Pct': 58},
+    {'Location': 'Alaska (Statewide)', 'Type': 'State', 'State_Code': 'AK', 'Basic_Needs': 118500, 'Median_Income': 86300, 'ALICE_Pct': 38},
+    {'Location': 'Anchorage, AK', 'Type': 'City', 'State_Code': 'AK', 'Basic_Needs': 121000, 'Median_Income': 89100, 'ALICE_Pct': 35},
+    {'Location': 'Arizona (Statewide)', 'Type': 'State', 'State_Code': 'AZ', 'Basic_Needs': 105400, 'Median_Income': 74200, 'ALICE_Pct': 42},
+    {'Location': 'Phoenix, AZ', 'Type': 'City', 'State_Code': 'AZ', 'Basic_Needs': 108900, 'Median_Income': 72100, 'ALICE_Pct': 44},
+    {'Location': 'Arkansas (Statewide)', 'Type': 'State', 'State_Code': 'AR', 'Basic_Needs': 86500, 'Median_Income': 55200, 'ALICE_Pct': 49},
+    {'Location': 'Little Rock, AR', 'Type': 'City', 'State_Code': 'AR', 'Basic_Needs': 89100, 'Median_Income': 52800, 'ALICE_Pct': 51},
+    {'Location': 'California (Statewide)', 'Type': 'State', 'State_Code': 'CA', 'Basic_Needs': 152400, 'Median_Income': 91900, 'ALICE_Pct': 44},
+    {'Location': 'Los Angeles, CA', 'Type': 'City', 'State_Code': 'CA', 'Basic_Needs': 158200, 'Median_Income': 76200, 'ALICE_Pct': 52},
+    {'Location': 'Colorado (Statewide)', 'Type': 'State', 'State_Code': 'CO', 'Basic_Needs': 124800, 'Median_Income': 89300, 'ALICE_Pct': 37},
+    {'Location': 'Denver, CO', 'Type': 'City', 'State_Code': 'CO', 'Basic_Needs': 131500, 'Median_Income': 85800, 'ALICE_Pct': 39},
+    {'Location': 'Connecticut (Statewide)', 'Type': 'State', 'State_Code': 'CT', 'Basic_Needs': 136200, 'Median_Income': 88400, 'ALICE_Pct': 39},
+    {'Location': 'Bridgeport, CT', 'Type': 'City', 'State_Code': 'CT', 'Basic_Needs': 141000, 'Median_Income': 48900, 'ALICE_Pct': 63},
+    {'Location': 'Delaware (Statewide)', 'Type': 'State', 'State_Code': 'DE', 'Basic_Needs': 108400, 'Median_Income': 79300, 'ALICE_Pct': 40},
+    {'Location': 'Wilmington, DE', 'Type': 'City', 'State_Code': 'DE', 'Basic_Needs': 111200, 'Median_Income': 49800, 'ALICE_Pct': 59},
+    {'Location': 'Florida (Statewide)', 'Type': 'State', 'State_Code': 'FL', 'Basic_Needs': 112600, 'Median_Income': 69300, 'ALICE_Pct': 46},
+    {'Location': 'Miami, FL', 'Type': 'City', 'State_Code': 'FL', 'Basic_Needs': 124500, 'Median_Income': 54900, 'ALICE_Pct': 61},
+    {'Location': 'Georgia (Statewide)', 'Type': 'State', 'State_Code': 'GA', 'Basic_Needs': 99800, 'Median_Income': 72800, 'ALICE_Pct': 45},
+    {'Location': 'Atlanta, GA', 'Type': 'City', 'State_Code': 'GA', 'Basic_Needs': 114200, 'Median_Income': 77600, 'ALICE_Pct': 46},
+    {'Location': 'Hawaii (Statewide)', 'Type': 'State', 'State_Code': 'HI', 'Basic_Needs': 168900, 'Median_Income': 92400, 'ALICE_Pct': 44},
+    {'Location': 'Honolulu, HI', 'Type': 'City', 'State_Code': 'HI', 'Basic_Needs': 172400, 'Median_Income': 95100, 'ALICE_Pct': 42},
+    {'Location': 'Idaho (Statewide)', 'Type': 'State', 'State_Code': 'ID', 'Basic_Needs': 96800, 'Median_Income': 72700, 'ALICE_Pct': 41},
+    {'Location': 'Boise, ID', 'Type': 'City', 'State_Code': 'ID', 'Basic_Needs': 104500, 'Median_Income': 76800, 'ALICE_Pct': 38},
+    {'Location': 'Illinois (Statewide)', 'Type': 'State', 'State_Code': 'IL', 'Basic_Needs': 114100, 'Median_Income': 76700, 'ALICE_Pct': 39},
+    {'Location': 'Chicago, IL', 'Type': 'City', 'State_Code': 'IL', 'Basic_Needs': 122800, 'Median_Income': 71600, 'ALICE_Pct': 46},
+    {'Location': 'Indiana (Statewide)', 'Type': 'State', 'State_Code': 'IN', 'Basic_Needs': 92400, 'Median_Income': 66800, 'ALICE_Pct': 39},
+    {'Location': 'Indianapolis, IN', 'Type': 'City', 'State_Code': 'IN', 'Basic_Needs': 96200, 'Median_Income': 59500, 'ALICE_Pct': 48},
+    {'Location': 'Iowa (Statewide)', 'Type': 'State', 'State_Code': 'IA', 'Basic_Needs': 91800, 'Median_Income': 69600, 'ALICE_Pct': 36},
+    {'Location': 'Des Moines, IA', 'Type': 'City', 'State_Code': 'IA', 'Basic_Needs': 95400, 'Median_Income': 64800, 'ALICE_Pct': 43},
+    {'Location': 'Kansas (Statewide)', 'Type': 'State', 'State_Code': 'KS', 'Basic_Needs': 93500, 'Median_Income': 68900, 'ALICE_Pct': 39},
+    {'Location': 'Wichita, KS', 'Type': 'City', 'State_Code': 'KS', 'Basic_Needs': 91200, 'Median_Income': 59800, 'ALICE_Pct': 47},
+    {'Location': 'Kentucky (Statewide)', 'Type': 'State', 'State_Code': 'KY', 'Basic_Needs': 89400, 'Median_Income': 58200, 'ALICE_Pct': 47},
+    {'Location': 'Louisville, KY', 'Type': 'City', 'State_Code': 'KY', 'Basic_Needs': 93100, 'Median_Income': 61400, 'ALICE_Pct': 46},
+    {'Location': 'Louisiana (Statewide)', 'Type': 'State', 'State_Code': 'LA', 'Basic_Needs': 91500, 'Median_Income': 55400, 'ALICE_Pct': 51},
+    {'Location': 'New Orleans, LA', 'Type': 'City', 'State_Code': 'LA', 'Basic_Needs': 98600, 'Median_Income': 48700, 'ALICE_Pct': 57},
+    {'Location': 'Maine (Statewide)', 'Type': 'State', 'State_Code': 'ME', 'Basic_Needs': 109800, 'Median_Income': 69500, 'ALICE_Pct': 38},
+    {'Location': 'Portland, ME', 'Type': 'City', 'State_Code': 'ME', 'Basic_Needs': 126400, 'Median_Income': 75200, 'ALICE_Pct': 37},
+    {'Location': 'Maryland (Statewide)', 'Type': 'State', 'State_Code': 'MD', 'Basic_Needs': 134500, 'Median_Income': 94900, 'ALICE_Pct': 38},
+    {'Location': 'Baltimore, MD', 'Type': 'City', 'State_Code': 'MD', 'Basic_Needs': 122100, 'Median_Income': 58300, 'ALICE_Pct': 54},
+    {'Location': 'Massachusetts (Statewide)', 'Type': 'State', 'State_Code': 'MA', 'Basic_Needs': 164800, 'Median_Income': 96500, 'ALICE_Pct': 38},
+    {'Location': 'Boston, MA', 'Type': 'City', 'State_Code': 'MA', 'Basic_Needs': 176200, 'Median_Income': 86300, 'ALICE_Pct': 45},
+    {'Location': 'Michigan (Statewide)', 'Type': 'State', 'State_Code': 'MI', 'Basic_Needs': 97500, 'Median_Income': 66900, 'ALICE_Pct': 39},
+    {'Location': 'Detroit, MI', 'Type': 'City', 'State_Code': 'MI', 'Basic_Needs': 94800, 'Median_Income': 37700, 'ALICE_Pct': 69},
+    {'Location': 'Minnesota (Statewide)', 'Type': 'State', 'State_Code': 'MN', 'Basic_Needs': 112400, 'Median_Income': 82300, 'ALICE_Pct': 34},
+    {'Location': 'Minneapolis, MN', 'Type': 'City', 'State_Code': 'MN', 'Basic_Needs': 121500, 'Median_Income': 76900, 'ALICE_Pct': 41},
+    {'Location': 'Mississippi (Statewide)', 'Type': 'State', 'State_Code': 'MS', 'Basic_Needs': 85200, 'Median_Income': 52700, 'ALICE_Pct': 52},
+    {'Location': 'Jackson, MS', 'Type': 'City', 'State_Code': 'MS', 'Basic_Needs': 87800, 'Median_Income': 41800, 'ALICE_Pct': 61},
+    {'Location': 'Missouri (Statewide)', 'Type': 'State', 'State_Code': 'MO', 'Basic_Needs': 92800, 'Median_Income': 64800, 'ALICE_Pct': 41},
+    {'Location': 'Kansas City, MO', 'Type': 'City', 'State_Code': 'MO', 'Basic_Needs': 98200, 'Median_Income': 64400, 'ALICE_Pct': 45},
+    {'Location': 'Montana (Statewide)', 'Type': 'State', 'State_Code': 'MT', 'Basic_Needs': 98900, 'Median_Income': 67600, 'ALICE_Pct': 41},
+    {'Location': 'Billings, MT', 'Type': 'City', 'State_Code': 'MT', 'Basic_Needs': 101200, 'Median_Income': 68500, 'ALICE_Pct': 39},
+    {'Location': 'Nebraska (Statewide)', 'Type': 'State', 'State_Code': 'NE', 'Basic_Needs': 94100, 'Median_Income': 71700, 'ALICE_Pct': 36},
+    {'Location': 'Omaha, NE', 'Type': 'City', 'State_Code': 'NE', 'Basic_Needs': 97800, 'Median_Income': 70200, 'ALICE_Pct': 40},
+    {'Location': 'Nevada (Statewide)', 'Type': 'State', 'State_Code': 'NV', 'Basic_Needs': 108200, 'Median_Income': 71600, 'ALICE_Pct': 45},
+    {'Location': 'Las Vegas, NV', 'Type': 'City', 'State_Code': 'NV', 'Basic_Needs': 111500, 'Median_Income': 67800, 'ALICE_Pct': 47},
+    {'Location': 'New Hampshire (Statewide)', 'Type': 'State', 'State_Code': 'NH', 'Basic_Needs': 128400, 'Median_Income': 90800, 'ALICE_Pct': 33},
+    {'Location': 'Manchester, NH', 'Type': 'City', 'State_Code': 'NH', 'Basic_Needs': 131200, 'Median_Income': 78400, 'ALICE_Pct': 37},
+    {'Location': 'New Jersey (Statewide)', 'Type': 'State', 'State_Code': 'NJ', 'Basic_Needs': 144500, 'Median_Income': 96300, 'ALICE_Pct': 37},
+    {'Location': 'Newark, NJ', 'Type': 'City', 'State_Code': 'NJ', 'Basic_Needs': 142100, 'Median_Income': 44200, 'ALICE_Pct': 66},
+    {'Location': 'New Mexico (Statewide)', 'Type': 'State', 'State_Code': 'NM', 'Basic_Needs': 91800, 'Median_Income': 58700, 'ALICE_Pct': 48},
+    {'Location': 'Albuquerque, NM', 'Type': 'City', 'State_Code': 'NM', 'Basic_Needs': 95200, 'Median_Income': 59400, 'ALICE_Pct': 46},
+    {'Location': 'New York (Statewide)', 'Type': 'State', 'State_Code': 'NY', 'Basic_Needs': 148900, 'Median_Income': 81400, 'ALICE_Pct': 44},
+    {'Location': 'New York City, NY', 'Type': 'City', 'State_Code': 'NY', 'Basic_Needs': 162400, 'Median_Income': 76700, 'ALICE_Pct': 51},
+    {'Location': 'North Carolina (Statewide)', 'Type': 'State', 'State_Code': 'NC', 'Basic_Needs': 97800, 'Median_Income': 67500, 'ALICE_Pct': 43},
+    {'Location': 'Charlotte, NC', 'Type': 'City', 'State_Code': 'NC', 'Basic_Needs': 106400, 'Median_Income': 74100, 'ALICE_Pct': 39},
+    {'Location': 'North Dakota (Statewide)', 'Type': 'State', 'State_Code': 'ND', 'Basic_Needs': 95400, 'Median_Income': 73900, 'ALICE_Pct': 37},
+    {'Location': 'Fargo, ND', 'Type': 'City', 'State_Code': 'ND', 'Basic_Needs': 98200, 'Median_Income': 68100, 'ALICE_Pct': 41},
+    {'Location': 'Ohio (Statewide)', 'Type': 'State', 'State_Code': 'OH', 'Basic_Needs': 93800, 'Median_Income': 65700, 'ALICE_Pct': 38},
+    {'Location': 'Cleveland, OH', 'Type': 'City', 'State_Code': 'OH', 'Basic_Needs': 91500, 'Median_Income': 37300, 'ALICE_Pct': 68},
+    {'Location': 'Oklahoma (Statewide)', 'Type': 'State', 'State_Code': 'OK', 'Basic_Needs': 88900, 'Median_Income': 59700, 'ALICE_Pct': 46},
+    {'Location': 'Oklahoma City, OK', 'Type': 'City', 'State_Code': 'OK', 'Basic_Needs': 91400, 'Median_Income': 61200, 'ALICE_Pct': 45},
+    {'Location': 'Oregon (Statewide)', 'Type': 'State', 'State_Code': 'OR', 'Basic_Needs': 121500, 'Median_Income': 76600, 'ALICE_Pct': 44},
+    {'Location': 'Portland, OR', 'Type': 'City', 'State_Code': 'OR', 'Basic_Needs': 132400, 'Median_Income': 81100, 'ALICE_Pct': 41},
+    {'Location': 'Pennsylvania (Statewide)', 'Type': 'State', 'State_Code': 'PA', 'Basic_Needs': 106800, 'Median_Income': 73200, 'ALICE_Pct': 39},
+    {'Location': 'Philadelphia, PA', 'Type': 'City', 'State_Code': 'PA', 'Basic_Needs': 118400, 'Median_Income': 57500, 'ALICE_Pct': 54},
+    {'Location': 'Rhode Island (Statewide)', 'Type': 'State', 'State_Code': 'RI', 'Basic_Needs': 129400, 'Median_Income': 81800, 'ALICE_Pct': 38},
+    {'Location': 'Providence, RI', 'Type': 'City', 'State_Code': 'RI', 'Basic_Needs': 132100, 'Median_Income': 61200, 'ALICE_Pct': 52},
+    {'Location': 'South Carolina (Statewide)', 'Type': 'State', 'State_Code': 'SC', 'Basic_Needs': 95200, 'Median_Income': 63600, 'ALICE_Pct': 44},
+    {'Location': 'Charleston, SC', 'Type': 'City', 'State_Code': 'SC', 'Basic_Needs': 109500, 'Median_Income': 78400, 'ALICE_Pct': 38},
+    {'Location': 'South Dakota (Statewide)', 'Type': 'State', 'State_Code': 'SD', 'Basic_Needs': 92100, 'Median_Income': 69700, 'ALICE_Pct': 37},
+    {'Location': 'Sioux Falls, SD', 'Type': 'City', 'State_Code': 'SD', 'Basic_Needs': 95800, 'Median_Income': 73500, 'ALICE_Pct': 35},
+    {'Location': 'Tennessee (Statewide)', 'Type': 'State', 'State_Code': 'TN', 'Basic_Needs': 93400, 'Median_Income': 64100, 'ALICE_Pct': 44},
+    {'Location': 'Nashville, TN', 'Type': 'City', 'State_Code': 'TN', 'Basic_Needs': 108900, 'Median_Income': 71400, 'ALICE_Pct': 40},
+    {'Location': 'Texas (Statewide)', 'Type': 'State', 'State_Code': 'TX', 'Basic_Needs': 101500, 'Median_Income': 73000, 'ALICE_Pct': 44},
+    {'Location': 'Houston, TX', 'Type': 'City', 'State_Code': 'TX', 'Basic_Needs': 104800, 'Median_Income': 60400, 'ALICE_Pct': 49},
+    {'Location': 'Utah (Statewide)', 'Type': 'State', 'State_Code': 'UT', 'Basic_Needs': 106400, 'Median_Income': 86800, 'ALICE_Pct': 32},
+    {'Location': 'Salt Lake City, UT', 'Type': 'City', 'State_Code': 'UT', 'Basic_Needs': 114200, 'Median_Income': 74800, 'ALICE_Pct': 41},
+    {'Location': 'Vermont (Statewide)', 'Type': 'State', 'State_Code': 'VT', 'Basic_Needs': 122400, 'Median_Income': 74100, 'ALICE_Pct': 37},
+    {'Location': 'Burlington, VT', 'Type': 'City', 'State_Code': 'VT', 'Basic_Needs': 134800, 'Median_Income': 73900, 'ALICE_Pct': 45},
+    {'Location': 'Virginia (Statewide)', 'Type': 'State', 'State_Code': 'VA', 'Basic_Needs': 116500, 'Median_Income': 87200, 'ALICE_Pct': 38},
+    {'Location': 'Virginia Beach, VA', 'Type': 'City', 'State_Code': 'VA', 'Basic_Needs': 112800, 'Median_Income': 84700, 'ALICE_Pct': 36},
+    {'Location': 'Washington (Statewide)', 'Type': 'State', 'State_Code': 'WA', 'Basic_Needs': 132400, 'Median_Income': 90300, 'ALICE_Pct': 35},
+    {'Location': 'Seattle, WA', 'Type': 'City', 'State_Code': 'WA', 'Basic_Needs': 154800, 'Median_Income': 115400, 'ALICE_Pct': 32},
+    {'Location': 'West Virginia (Statewide)', 'Type': 'State', 'State_Code': 'WV', 'Basic_Needs': 86200, 'Median_Income': 54300, 'ALICE_Pct': 48},
+    {'Location': 'Charleston, WV', 'Type': 'City', 'State_Code': 'WV', 'Basic_Needs': 89200, 'Median_Income': 51200, 'ALICE_Pct': 53},
+    {'Location': 'Wisconsin (Statewide)', 'Type': 'State', 'State_Code': 'WI', 'Basic_Needs': 98400, 'Median_Income': 72500, 'ALICE_Pct': 34},
+    {'Location': 'Milwaukee, WI', 'Type': 'City', 'State_Code': 'WI', 'Basic_Needs': 97800, 'Median_Income': 47100, 'ALICE_Pct': 59},
+    {'Location': 'Wyoming (Statewide)', 'Type': 'State', 'State_Code': 'WY', 'Basic_Needs': 95800, 'Median_Income': 70000, 'ALICE_Pct': 36},
+    {'Location': 'Cheyenne, WY', 'Type': 'City', 'State_Code': 'WY', 'Basic_Needs': 98200, 'Median_Income': 73200, 'ALICE_Pct': 34},
 ]
-ALL_LOCATIONS_DF = pd.DataFrame(LOCATIONS_DATA, columns=['Location', 'State', 'Type', 'Basic_Needs', 'Median_Income', 'ALICE_Pct'])
 
-st.title("📏 A Better Ruler: Four-Pillar Economic Dashboard")
-st.caption("Replacing Single Aggregate Magic Numbers with Household Reality Across All 50 US States & 50 Major Cities | Data: BEA, BLS, Fed, Census, MIT Living Wage, ALICE")
+df_master_geo = pd.DataFrame(LOCATIONS_DATA)
+df_master_geo['Deficit'] = df_master_geo['Basic_Needs'] - df_master_geo['Median_Income']
 
-st.sidebar.header("⚙️ Framework Controls")
-year_range = st.sidebar.slider("Historical Horizon", 1975, 2024, (1990, 2024))
-family_structure = st.sidebar.selectbox("Family Composition", ["2 Adults, 2 Children", "1 Adult, 1 Child", "Single Adult"])
+# --- HERO BANNER INTRO SECTION ---
+st.markdown("""
+<div class="hero-container">
+    <div class="hero-title">📏 A Better Ruler: Four-Pillar Economic Dashboard</div>
+    <div class="hero-subtitle">
+        National averages like aggregate GDP, headline inflation, or stock indexes create a false illusion of universal prosperity. 
+        <strong>A Better Ruler</strong> replaces single magic numbers with four grounded dimensions of economic reality—measuring total output capacity, income & wealth distribution, family balance sheet resilience, and the localized cost of participation.
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# --- SIDEBAR CONTROLS ---
+st.sidebar.header("⚙️ Dashboard Controls")
+year_range = st.sidebar.slider("Historical Time Horizon", 1975, 2024, (1990, 2024))
+family_structure = st.sidebar.selectbox("Family Composition Baseline", ["2 Adults, 2 Children (Standard)", "1 Adult, 1 Child", "Single Adult"])
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("📍 Participation Filters")
-type_filter = st.sidebar.radio("Location Filter Type", ["All Locations (100)", "Statewide Only (50)", "Major Cities Only (50)"])
-selected_states = st.sidebar.multiselect("Filter by US State(s)", sorted(list(ALL_LOCATIONS_DF['State'].unique())), default=['CA', 'NY', 'TX', 'FL', 'IL'])
+st.sidebar.header("👤 Personal Household Reality Check")
+user_state = st.sidebar.selectbox("Select Your State", sorted(list(df_master_geo[df_master_geo['Type'] == 'State']['Location'].unique())), index=4)
+user_income = st.sidebar.number_input("Annual Household Income ($)", min_value=10000, max_value=500000, value=75000, step=5000)
 
+state_row = df_master_geo[df_master_geo['Location'] == user_state].iloc[0]
+st_basic = state_row['Basic_Needs']
+st_median = state_row['Median_Income']
+st_alice_pct = state_row['ALICE_Pct']
+
+diff_vs_basic = user_income - st_basic
+if diff_vs_basic >= 0:
+    st.sidebar.success(f"🟢 **+${diff_vs_basic:,.0f}** above local basic-needs budget (${st_basic:,.0f}).")
+else:
+    st.sidebar.error(f"🔴 **-${abs(diff_vs_basic):,.0f}** below local basic-needs budget (${st_basic:,.0f}).")
+
+st.sidebar.caption(f"State Median: ${st_median:,.0f} | ALICE Stress: {st_alice_pct}%")
+
+# Main Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
     "⚙️ Capacity", 
     "📊 Distribution", 
     "🛡️ Resilience", 
-    "📍 Participation (50 States & Cities)"
+    "📍 Participation & 50-State Reality"
 ])
 
+# TAB 1: CAPACITY
 with tab1:
     st.subheader("⚙️ Pillar 1: Capacity — What Can the Economy Produce?")
-    st.write("Real GDP measures total national production output, while Output Per Hour tracks labor productivity.")
+    st.write("Real GDP measures total national production volume, while Output Per Hour measures labor efficiency.")
     
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div class="metric-card"><h4>Real GDP (Latest)</h4><h2>$22.7 Trillion</h2><p>+2.8% Annualized Growth</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card"><h4>Real GDP (Latest)</h4><h2>$22.7 Trillion</h2><p>+2.8% Annualized Growth Rate</p></div>', unsafe_allow_html=True)
     with col2:
         st.markdown('<div class="metric-card"><h4>Labor Productivity Index</h4><h2>112.4</h2><p>Base 2017=100 (+1.9% YoY)</p></div>', unsafe_allow_html=True)
         
     gdp = load_fred('GDPC1')
     prod = load_fred('OPHNFB')
     df_cap = pd.merge(gdp, prod, left_index=True, right_index=True, how='inner').dropna()
+    df_cap.rename(columns={'GDPC1': 'Real_GDP', 'OPHNFB': 'Productivity'}, inplace=True)
     
-    base_gdp = df_cap.loc['2000-01-01':'2000-04-01', 'GDPC1'].mean() if not df_cap.loc['2000-01-01':'2000-04-01'].empty else df_cap['GDPC1'].iloc[0]
-    base_prod = df_cap.loc['2000-01-01':'2000-04-01', 'OPHNFB'].mean() if not df_cap.loc['2000-01-01':'2000-04-01'].empty else df_cap['OPHNFB'].iloc[0]
+    # Baseline Indexing (2000=100)
+    base_year_df = df_cap.loc['2000-01-01':'2000-12-31']
+    base_gdp = base_year_df['Real_GDP'].mean() if not base_year_df.empty else df_cap['Real_GDP'].iloc[0]
+    base_prod = base_year_df['Productivity'].mean() if not base_year_df.empty else df_cap['Productivity'].iloc[0]
     
-    df_cap['GDP_Indexed_2000'] = (df_cap['GDPC1'] / base_gdp) * 100
-    df_cap['Prod_Indexed_2000'] = (df_cap['OPHNFB'] / base_prod) * 100
+    df_cap['GDP_Indexed'] = (df_cap['Real_GDP'] / base_gdp) * 100
+    df_cap['Prod_Indexed'] = (df_cap['Productivity'] / base_prod) * 100
     
     df_cap_filtered = df_cap[(df_cap.index.year >= year_range[0]) & (df_cap.index.year <= year_range[1])]
     
-    fig1 = px.line(df_cap_filtered, y=['GDP_Indexed_2000', 'Prod_Indexed_2000'],
-                   labels={'value': 'Index (2000=100)', 'index': 'Year', 'variable': 'Indicator'},
-                   title=f"Capacity Growth: Real GDP vs. Productivity Index ({year_range[0]} - {year_range[1]})")
+    fig1 = px.line(df_cap_filtered, y=['GDP_Indexed', 'Prod_Indexed'],
+                   labels={'value': 'Index (2000=100)', 'DATE': 'Year', 'variable': 'Indicator'},
+                   title="Real GDP Growth vs. Output Per Hour (Productivity)")
     st.plotly_chart(fig1, use_container_width=True)
 
+# TAB 2: DISTRIBUTION
 with tab2:
-    st.subheader("📊 Pillar 2: Distribution — Who Receives Growth?")
-    st.write("Contrasting $1/Vote Arithmetic GDP against 1 Person/Vote Geometric **Democratic Domestic Product (DDP)**.")
+    st.subheader("📊 Pillar 2: Distribution — Who Receives the Growth?")
+    st.write("Contrasting standard aggregate growth ($1/Vote GDP) against person-weighted growth (Democratic Domestic Product - DDP, 1 Person/Vote).")
     
-    years = np.arange(1975, 2024)
-    gdp_growth_indexed = 100 * (1 + 0.014) ** (years - 1975)
-    ddp_growth_indexed = 100 * (1 + 0.009) ** (years - 1975)
+    years = np.arange(1975, 2025)
+    gdp_growth = 100 * (1 + 0.014) ** (years - 1975)
+    ddp_growth = 100 * (1 + 0.009) ** (years - 1975)
+    df_dist_growth = pd.DataFrame({'Year': years, 'Average Growth (GDP - $1/Vote)': gdp_growth, 'Democratic Growth (DDP - 1 Person/Vote)': ddp_growth})
     
-    df_dist = pd.DataFrame({
-        'Year': years,
-        'Average Growth (GDP - $1/Vote)': gdp_growth_indexed,
-        'Democratic Growth (DDP - 1 Person/Vote)': ddp_growth_indexed
-    })
-    df_dist = df_dist[(df_dist['Year'] >= year_range[0]) & (df_dist['Year'] <= year_range[1])]
-    
-    fig2 = px.line(df_dist, x='Year', y=['Average Growth (GDP - $1/Vote)', 'Democratic Growth (DDP - 1 Person/Vote)'],
-                   title="Growth Divergence: Aggregate GDP vs Person-Weighted DDP")
+    fig2 = px.line(df_dist_growth, x='Year', y=['Average Growth (GDP - $1/Vote)', 'Democratic Growth (DDP - 1 Person/Vote)'],
+                   title="The Two Growth Rates Divergence (1975–2024)")
     st.plotly_chart(fig2, use_container_width=True)
-    st.info("💡 Post-1975, aggregate growth (GDP) diverged from person-weighted growth (DDP). Had DDP kept pace with GDP, median household income would be ~28% higher today.")
+    
+    col_a, col_b = st.columns(2)
+    with col_a:
+        gini = load_fred('GINIALLRH')
+        gini_filtered = gini[(gini.index.year >= year_range[0]) & (gini.index.year <= year_range[1])]
+        fig_gini = px.line(gini_filtered, y='GINIALLRH', title="US Household Gini Inequality Index")
+        st.plotly_chart(fig_gini, use_container_width=True)
+    with col_b:
+        top1 = load_fred('WFRBSTP0886')
+        bot50 = load_fred('WFRBSN40180')
+        df_wealth = pd.merge(top1, bot50, left_index=True, right_index=True, how='inner').dropna()
+        df_wealth.rename(columns={'WFRBSTP0886': 'Top 1% Share', 'WFRBSN40180': 'Bottom 50% Share'}, inplace=True)
+        df_wealth_filt = df_wealth[(df_wealth.index.year >= year_range[0]) & (df_wealth.index.year <= year_range[1])]
+        fig_wealth = px.line(df_wealth_filt, y=['Top 1% Share', 'Bottom 50% Share'], title="Federal Reserve DFA Net Worth Shares (%)")
+        st.plotly_chart(fig_wealth, use_container_width=True)
 
+# TAB 3: RESILIENCE
 with tab3:
     st.subheader("🛡️ Pillar 3: Resilience — Can Families Absorb a Shock?")
-    st.write("Tracking debt-service payment burdens and credit card delinquency rates.")
+    st.write("Debt-service burdens, credit card delinquencies, and liquid reserves reveal household shock vulnerability.")
     
     tdsp = load_fred('TDSP')
     delinq = load_fred('DRCLACBS')
     df_res = pd.merge(tdsp, delinq, left_index=True, right_index=True, how='inner').dropna()
-    df_res = df_res[(df_res.index.year >= year_range[0]) & (df_res.index.year <= year_range[1])]
+    df_res_filt = df_res[(df_res.index.year >= year_range[0]) & (df_res.index.year <= year_range[1])]
     
     fig3 = make_subplots(specs=[[{"secondary_y": True}]])
-    fig3.add_trace(go.Scatter(x=df_res.index, y=df_res['TDSP'], name="Debt Service Burden (% Disposable Income)"), secondary_y=False)
-    fig3.add_trace(go.Scatter(x=df_res.index, y=df_res['DRCLACBS'], name="Credit Card Delinquency (%)", line=dict(dash='dash', color='crimson')), secondary_y=True)
-    fig3.update_layout(title_text="Household Financial Obligations vs Credit Card Delinquency Spike")
+    fig3.add_trace(go.Scatter(x=df_res_filt.index, y=df_res_filt['TDSP'], name="Debt Service Burden (% Disposable Income)"), secondary_y=False)
+    fig3.add_trace(go.Scatter(x=df_res_filt.index, y=df_res_filt['DRCLACBS'], name="Credit Card Delinquency Rate (%)", line=dict(dash='dash', color='crimson')), secondary_y=True)
+    fig3.update_layout(title_text="Household Debt Service Burden vs. Credit Card Delinquency Spike")
     st.plotly_chart(fig3, use_container_width=True)
 
+# TAB 4: PARTICIPATION & 50-STATE REALITY
 with tab4:
-    st.subheader("📍 Pillar 4: Local Participation — Cost of Attachment to Work Across 50 States & 50 Major Cities")
-    st.write("Comparing localized household median incomes against MIT Living Wage & ALICE Household Essentials Thresholds.")
+    st.subheader("📍 Pillar 4: Local Participation & 50-State Economic Map")
+    st.write("Matching localized household incomes against MIT Living Wage benchmarks & ALICE Household Essentials Thresholds.")
     
-    df_part = ALL_LOCATIONS_DF.copy()
-    if type_filter == "Statewide Only (50)":
-        df_part = df_part[df_part['Type'] == 'Statewide']
-    elif type_filter == "Major Cities Only (50)":
-        df_part = df_part[df_part['Type'] == 'City']
-        
-    if selected_states:
-        df_part = df_part[df_part['State'].isin(selected_states)]
-        
-    k1, k2, k3, k4 = st.columns(4)
-    if not df_part.empty:
-        avg_needs = df_part['Basic_Needs'].mean()
-        avg_income = df_part['Median_Income'].mean()
-        avg_alice = df_part['ALICE_Pct'].mean()
-        gap = avg_needs - avg_income
-        
-        k1.metric("Selected Locations", len(df_part))
-        k2.metric("Avg Basic Needs Budget", f"${avg_needs:,.0f}")
-        k3.metric("Avg Household Income", f"${avg_income:,.0f}")
-        k4.metric("Avg Income Deficit", f"-${gap:,.0f}", delta_color="inverse")
-        
-        fig4 = px.bar(df_part, x='Location', y=['Median_Income', 'Basic_Needs'], barmode='group',
-                      title=f"Median Household Income vs. MIT Basic Needs Budget ({family_structure})",
-                      labels={'value': 'Annual USD ($)', 'variable': 'Metric'})
-        st.plotly_chart(fig4, use_container_width=True)
-        
-        st.markdown("#### 📊 ALICE Household Stress Percentage (% Below Basic Needs Threshold)")
-        fig_alice = px.bar(df_part.sort_values(by='ALICE_Pct', ascending=False), x='Location', y='ALICE_Pct',
-                           color='ALICE_Pct', color_continuous_scale='Reds',
-                           title="Share of Households Struggling Below ALICE Living Threshold (%)")
-        st.plotly_chart(fig_alice, use_container_width=True)
-        
-        st.markdown("#### 📋 Full Data Table (50 States & 50 Cities)")
-        st.dataframe(df_part, use_container_width=True)
+    # 1. 50-STATE CHOROPLETH MAP
+    st.markdown("#### 1. 🗺️ 50-State Interactive Economic Map")
+    
+    df_states_only = df_master_geo[df_master_geo['Type'] == 'State'].copy()
+    
+    map_metric = st.selectbox(
+        "Select Map Metric / Color Coding:",
+        [
+            "Living Wage Deficit ($) [Basic Needs minus Median Income]",
+            "ALICE Household Stress (%) [% Households Below Essentials Budget]",
+            "MIT Annual Basic Needs Budget ($) [Family of 4]",
+            "Median Household Income ($)"
+        ]
+    )
+    
+    if "Deficit" in map_metric:
+        color_col = 'Deficit'
+        color_title = "Living Wage Deficit ($)"
+        colorscale = 'Reds'
+    elif "ALICE" in map_metric:
+        color_col = 'ALICE_Pct'
+        color_title = "ALICE Stress (%)"
+        colorscale = 'Oranges'
+    elif "MIT" in map_metric:
+        color_col = 'Basic_Needs'
+        color_title = "Basic Needs Budget ($)"
+        colorscale = 'Blues'
     else:
-        st.warning("No locations match your current filter selections. Please pick state(s) from the sidebar.")
+        color_col = 'Median_Income'
+        color_title = "Median Income ($)"
+        colorscale = 'Greens'
         
-    st.markdown("---")
-    st.markdown("#### 🎛️ Interactive Benefit Cliff Simulator")
-    user_wage = st.slider("Select Hourly Wage Rate ($/hr):", 15.0, 35.0, 20.0, 0.5)
-    gross_monthly = user_wage * 160
-    subsidy = 1100 if gross_monthly < 2600 else (450 if gross_monthly < 3500 else 0)
-    net_res = gross_monthly + subsidy - 400
+    fig_map = px.choropleth(
+        df_states_only,
+        locations='State_Code',
+        locationmode="USA-states",
+        color=color_col,
+        scope="usa",
+        color_continuous_scale=colorscale,
+        hover_name='Location',
+        hover_data={
+            'State_Code': False,
+            'Basic_Needs': ':$spin,',
+            'Median_Income': ':$spin,',
+            'Deficit': ':$spin,',
+            'ALICE_Pct': ':%'
+        },
+        title=f"US 50-State Map: {color_title}"
+    )
+    fig_map.update_layout(height=500, margin={"r":0,"t":40,"l":0,"b":0})
+    st.plotly_chart(fig_map, use_container_width=True)
     
-    b1, b2, b3 = st.columns(3)
-    b1.metric("Gross Monthly Pay", f"${gross_monthly:,.0f}")
-    b2.metric("Public Subsidies", f"${subsidy:,.0f}")
-    b3.metric("Net Household Resources", f"${net_res:,.0f}")
+    st.markdown("---")
+    
+    # 2. STATE RANKINGS & LEADERBOARD
+    st.markdown("#### 2. 🏆 100 Location Explorer & Leaderboard (50 States + 50 Cities)")
+    
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        type_filter = st.radio("Filter Location Types:", ["All (100 Locations)", "States Only (50 States)", "Major Cities Only (50 Cities)"], horizontal=True)
+    with col_f2:
+        sort_metric = st.selectbox("Sort Table By:", ["Highest Living Wage Deficit ($)", "Highest ALICE Stress (%)", "Highest Basic Needs Budget ($)", "Lowest Median Income ($)"])
+        
+    df_filtered_locs = df_master_geo.copy()
+    if type_filter == "States Only (50 States)":
+        df_filtered_locs = df_filtered_locs[df_filtered_locs['Type'] == 'State']
+    elif type_filter == "Major Cities Only (50 Cities)":
+        df_filtered_locs = df_filtered_locs[df_filtered_locs['Type'] == 'City']
+        
+    if sort_metric == "Highest Living Wage Deficit ($)":
+        df_filtered_locs = df_filtered_locs.sort_values(by='Deficit', ascending=False)
+    elif sort_metric == "Highest ALICE Stress (%)":
+        df_filtered_locs = df_filtered_locs.sort_values(by='ALICE_Pct', ascending=False)
+    elif sort_metric == "Highest Basic Needs Budget ($)":
+        df_filtered_locs = df_filtered_locs.sort_values(by='Basic_Needs', ascending=False)
+    else:
+        df_filtered_locs = df_filtered_locs.sort_values(by='Median_Income', ascending=True)
+        
+    st.dataframe(
+        df_filtered_locs[['Location', 'Type', 'Basic_Needs', 'Median_Income', 'Deficit', 'ALICE_Pct']],
+        column_config={
+            'Basic_Needs': st.column_config.NumberColumn("MIT Basic Needs ($)", format="$%d"),
+            'Median_Income': st.column_config.NumberColumn("Median Income ($)", format="$%d"),
+            'Deficit': st.column_config.NumberColumn("Living Wage Deficit ($)", format="$%d"),
+            'ALICE_Pct': st.column_config.NumberColumn("ALICE Stress (%)", format="%d%%"),
+        },
+        use_container_width=True,
+        hide_index=True
+    )
+    
+    st.markdown("---")
+    
+    # 3. INTERACTIVE BENEFIT CLIFF SIMULATOR
+    st.markdown("#### 3. 🎛️ Interactive Benefit Cliff Simulator")
+    st.write("Simulate how modest wage increases cause sudden drop-offs in public subsidies (childcare, SNAP, Medicaid), leaving households with fewer net resources.")
+    
+    user_wage = st.slider("Select Hourly Wage Rate ($/hr):", min_value=15.0, max_value=35.0, value=21.0, step=0.5)
+    monthly_hours = 160
+    gross_monthly = user_wage * monthly_hours
+    
+    if gross_monthly < 2700:
+        subsidy = 1100
+        cliff_status = "🟢 Full Subsidy Eligible (Childcare + SNAP)"
+    elif gross_monthly < 3500:
+        subsidy = 450
+        cliff_status = "🟡 Partial Benefit Phase-Out"
+    else:
+        subsidy = 0
+        cliff_status = "🔴 BENEFIT CLIFF HIT — Subsidies Reduced to 0"
+        
+    net_resources = gross_monthly + subsidy - 400
+    
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Gross Monthly Pay", f"${gross_monthly:,.0f}")
+    m2.metric("Public Subsidies", f"${subsidy:,.0f}")
+    m3.metric("Net Available Resources", f"${net_resources:,.0f}")
+    m4.write(f"**Status**: {cliff_status}")
+    
+    # Plotly Curve
+    wages_arr = np.linspace(15, 35, 41)
+    curve_rows = []
+    for w in wages_arr:
+        gm = w * 160
+        sub = 1100 if gm < 2700 else (450 if gm < 3500 else 0)
+        net = gm + sub - 400
+        curve_rows.append({'Wage': w, 'Gross Pay': gm, 'Subsidies': sub, 'Net Resources': net})
+    df_curve = pd.DataFrame(curve_rows)
+    
+    fig_cliff = go.Figure()
+    fig_cliff.add_trace(go.Scatter(x=df_curve['Wage'], y=df_curve['Gross Pay'], name="Gross Monthly Pay ($)", line=dict(color="#2563eb")))
+    fig_cliff.add_trace(go.Scatter(x=df_curve['Wage'], y=df_curve['Subsidies'], name="Public Subsidies ($)", line=dict(color="#10b981", dash="dash")))
+    fig_cliff.add_trace(go.Scatter(x=df_curve['Wage'], y=df_curve['Net Resources'], name="Net Household Resources ($)", line=dict(color="#dc2626", width=3)))
+    fig_cliff.add_vline(x=user_wage, line_dash="dot", line_color="black", annotation_text=f"Selected: ${user_wage}/hr")
+    fig_cliff.update_layout(
+        title="Net Household Resources Across Hourly Wage Levels ($15 - $35 / hr)",
+        xaxis_title="Hourly Wage ($/hr)",
+        yaxis_title="Monthly Amount ($)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    st.plotly_chart(fig_cliff, use_container_width=True)
 
-st.caption("A Better Ruler Framework | Data: BEA, BLS, Federal Reserve, MIT Living Wage Calculator, United for ALICE.")
+st.caption("A Better Ruler Framework | Data: BEA, BLS, Federal Reserve Board SCF & DFA, MIT Living Wage, United for ALICE Project.")
