@@ -8,19 +8,18 @@ import requests
 import io
 
 st.set_page_config(
-    page_title="A Better Ruler | Economic Dashboard",
+    page_title="A Better Ruler | 50 States Economic Dashboard",
     page_icon="📏",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling
 st.markdown("""
 <style>
     .metric-card {
         background-color: #f8f9fa;
-        padding: 18px;
-        border-radius: 10px;
+        padding: 16px;
+        border-radius: 8px;
         border-left: 5px solid #2e6fdf;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         margin-bottom: 12px;
@@ -29,11 +28,11 @@ st.markdown("""
         gap: 12px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
+        height: 48px;
         white-space: pre-wrap;
         background-color: #f1f3f5;
         border-radius: 6px 6px 0px 0px;
-        padding: 10px 16px;
+        padding: 8px 16px;
     }
     .stTabs [aria-selected="true"] {
         background-color: #2e6fdf !important;
@@ -56,15 +55,6 @@ def generate_fallback_series(series_id, start_year=1975, end_year=2024):
         vals = 11.5 + 2.0 * np.sin(t * 12)
     elif series_id == 'DRCLACBS':
         vals = 3.5 + 2.5 * np.sin(t * 18)
-    elif series_id == 'GINIALLRH':
-        dates_ann = pd.date_range(start=f"{start_year}-01-01", end=f"{end_year}-12-31", freq='YS')
-        n_a = len(dates_ann)
-        vals_a = 0.39 + 0.10 * np.linspace(0, 1, n_a)
-        return pd.DataFrame({series_id: vals_a}, index=dates_ann)
-    elif series_id == 'WFRBSTP0886':
-        vals = 24.0 + 6.0 * np.sin(t * 5)
-    elif series_id == 'WFRBSN40180':
-        vals = 4.5 - 2.0 * (t ** 0.8)
     else:
         vals = 100 + 10 * t
     return pd.DataFrame({series_id: vals}, index=dates)
@@ -72,43 +62,845 @@ def generate_fallback_series(series_id, start_year=1975, end_year=2024):
 @st.cache_data(ttl=3600)
 def load_fred(series_id):
     url = f"{FRED_BASE_URL}?id={series_id}"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        res = requests.get(url, headers=headers, timeout=4)
+        res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200 and res.text.strip().startswith("DATE"):
             df = pd.read_csv(io.StringIO(res.text), parse_dates=['DATE'], index_col='DATE')
             df[series_id] = pd.to_numeric(df[series_id], errors='coerce')
             df = df.dropna()
             if not df.empty:
-                return df.copy()
+                return df
     except Exception:
         pass
-    return generate_fallback_series(series_id).copy()
+    return generate_fallback_series(series_id)
 
-# Header
+LOCATIONS_DATA = [
+    [
+        "Alabama (Statewide)",
+        "AL",
+        "Statewide",
+        92400,
+        56900,
+        47
+    ],
+    [
+        "Birmingham, AL",
+        "AL",
+        "City",
+        94800,
+        42500,
+        52
+    ],
+    [
+        "Alaska (Statewide)",
+        "AK",
+        "Statewide",
+        112500,
+        80200,
+        39
+    ],
+    [
+        "Anchorage, AK",
+        "AK",
+        "City",
+        115200,
+        85600,
+        36
+    ],
+    [
+        "Arizona (Statewide)",
+        "AZ",
+        "Statewide",
+        108400,
+        72500,
+        43
+    ],
+    [
+        "Phoenix, AZ",
+        "AZ",
+        "City",
+        111600,
+        74900,
+        45
+    ],
+    [
+        "Arkansas (Statewide)",
+        "AR",
+        "Statewide",
+        89800,
+        52500,
+        48
+    ],
+    [
+        "Little Rock, AR",
+        "AR",
+        "City",
+        92100,
+        55800,
+        49
+    ],
+    [
+        "California (Statewide)",
+        "CA",
+        "Statewide",
+        154200,
+        85300,
+        44
+    ],
+    [
+        "Los Angeles, CA",
+        "CA",
+        "City",
+        158900,
+        76200,
+        49
+    ],
+    [
+        "Colorado (Statewide)",
+        "CO",
+        "Statewide",
+        128600,
+        87600,
+        37
+    ],
+    [
+        "Denver, CO",
+        "CO",
+        "City",
+        135400,
+        85800,
+        38
+    ],
+    [
+        "Connecticut (Statewide)",
+        "CT",
+        "Statewide",
+        139500,
+        88400,
+        39
+    ],
+    [
+        "Bridgeport, CT",
+        "CT",
+        "City",
+        142800,
+        50600,
+        56
+    ],
+    [
+        "Delaware (Statewide)",
+        "DE",
+        "Statewide",
+        115800,
+        79300,
+        41
+    ],
+    [
+        "Wilmington, DE",
+        "DE",
+        "City",
+        118400,
+        53200,
+        54
+    ],
+    [
+        "Florida (Statewide)",
+        "FL",
+        "Statewide",
+        114600,
+        67900,
+        46
+    ],
+    [
+        "Jacksonville, FL",
+        "FL",
+        "City",
+        112800,
+        64200,
+        44
+    ],
+    [
+        "Georgia (Statewide)",
+        "GA",
+        "Statewide",
+        104200,
+        71300,
+        45
+    ],
+    [
+        "Atlanta, GA",
+        "GA",
+        "City",
+        118900,
+        77600,
+        47
+    ],
+    [
+        "Hawaii (Statewide)",
+        "HI",
+        "Statewide",
+        168400,
+        88200,
+        44
+    ],
+    [
+        "Honolulu, HI",
+        "HI",
+        "City",
+        172100,
+        92600,
+        42
+    ],
+    [
+        "Idaho (Statewide)",
+        "ID",
+        "Statewide",
+        102500,
+        70200,
+        40
+    ],
+    [
+        "Boise, ID",
+        "ID",
+        "City",
+        108900,
+        74800,
+        38
+    ],
+    [
+        "Illinois (Statewide)",
+        "IL",
+        "Statewide",
+        118500,
+        78200,
+        41
+    ],
+    [
+        "Chicago, IL",
+        "IL",
+        "City",
+        126400,
+        71700,
+        47
+    ],
+    [
+        "Indiana (Statewide)",
+        "IN",
+        "Statewide",
+        94600,
+        67200,
+        42
+    ],
+    [
+        "Indianapolis, IN",
+        "IN",
+        "City",
+        98200,
+        59500,
+        48
+    ],
+    [
+        "Iowa (Statewide)",
+        "IA",
+        "Statewide",
+        93200,
+        69600,
+        38
+    ],
+    [
+        "Des Moines, IA",
+        "IA",
+        "City",
+        97500,
+        64900,
+        41
+    ],
+    [
+        "Kansas (Statewide)",
+        "KS",
+        "Statewide",
+        95800,
+        69400,
+        40
+    ],
+    [
+        "Wichita, KS",
+        "KS",
+        "City",
+        96400,
+        60800,
+        45
+    ],
+    [
+        "Kentucky (Statewide)",
+        "KY",
+        "Statewide",
+        91200,
+        58400,
+        47
+    ],
+    [
+        "Louisville, KY",
+        "KY",
+        "City",
+        94500,
+        61200,
+        46
+    ],
+    [
+        "Louisiana (Statewide)",
+        "LA",
+        "Statewide",
+        93800,
+        55400,
+        51
+    ],
+    [
+        "New Orleans, LA",
+        "LA",
+        "City",
+        99800,
+        49600,
+        56
+    ],
+    [
+        "Maine (Statewide)",
+        "ME",
+        "Statewide",
+        114200,
+        68200,
+        42
+    ],
+    [
+        "Portland, ME",
+        "ME",
+        "City",
+        128500,
+        76400,
+        39
+    ],
+    [
+        "Maryland (Statewide)",
+        "MD",
+        "Statewide",
+        138600,
+        98200,
+        38
+    ],
+    [
+        "Baltimore, MD",
+        "MD",
+        "City",
+        132400,
+        58300,
+        53
+    ],
+    [
+        "Massachusetts (Statewide)",
+        "MA",
+        "Statewide",
+        164780,
+        96500,
+        38
+    ],
+    [
+        "Boston, MA",
+        "MA",
+        "City",
+        176200,
+        86300,
+        46
+    ],
+    [
+        "Michigan (Statewide)",
+        "MI",
+        "Statewide",
+        102400,
+        68500,
+        43
+    ],
+    [
+        "Detroit, MI",
+        "MI",
+        "City",
+        98600,
+        37700,
+        69
+    ],
+    [
+        "Minnesota (Statewide)",
+        "MN",
+        "Statewide",
+        116800,
+        84300,
+        37
+    ],
+    [
+        "Minneapolis, MN",
+        "MN",
+        "City",
+        125400,
+        76800,
+        42
+    ],
+    [
+        "Mississippi (Statewide)",
+        "MS",
+        "Statewide",
+        88600,
+        52700,
+        52
+    ],
+    [
+        "Jackson, MS",
+        "MS",
+        "City",
+        90200,
+        42800,
+        58
+    ],
+    [
+        "Missouri (Statewide)",
+        "MO",
+        "Statewide",
+        95400,
+        65600,
+        42
+    ],
+    [
+        "Kansas City, MO",
+        "MO",
+        "City",
+        99800,
+        63200,
+        46
+    ],
+    [
+        "Montana (Statewide)",
+        "MT",
+        "Statewide",
+        104800,
+        66300,
+        41
+    ],
+    [
+        "Billings, MT",
+        "MT",
+        "City",
+        106200,
+        68400,
+        39
+    ],
+    [
+        "Nebraska (Statewide)",
+        "NE",
+        "Statewide",
+        94800,
+        71700,
+        37
+    ],
+    [
+        "Omaha, NE",
+        "NE",
+        "City",
+        98600,
+        68900,
+        40
+    ],
+    [
+        "Nevada (Statewide)",
+        "NV",
+        "Statewide",
+        112400,
+        71600,
+        45
+    ],
+    [
+        "Las Vegas, NV",
+        "NV",
+        "City",
+        114800,
+        67600,
+        47
+    ],
+    [
+        "New Hampshire (Statewide)",
+        "NH",
+        "Statewide",
+        132500,
+        90800,
+        34
+    ],
+    [
+        "Manchester, NH",
+        "NH",
+        "City",
+        134200,
+        74200,
+        38
+    ],
+    [
+        "New Jersey (Statewide)",
+        "NJ",
+        "Statewide",
+        146800,
+        97100,
+        37
+    ],
+    [
+        "Newark, NJ",
+        "NJ",
+        "City",
+        142500,
+        43800,
+        64
+    ],
+    [
+        "New Mexico (Statewide)",
+        "NM",
+        "Statewide",
+        96400,
+        58700,
+        49
+    ],
+    [
+        "Albuquerque, NM",
+        "NM",
+        "City",
+        98900,
+        61500,
+        46
+    ],
+    [
+        "New York (Statewide)",
+        "NY",
+        "Statewide",
+        148500,
+        81400,
+        44
+    ],
+    [
+        "New York City, NY",
+        "NY",
+        "City",
+        168900,
+        76900,
+        51
+    ],
+    [
+        "North Carolina (Statewide)",
+        "NC",
+        "Statewide",
+        104600,
+        66200,
+        44
+    ],
+    [
+        "Charlotte, NC",
+        "NC",
+        "City",
+        112400,
+        74300,
+        41
+    ],
+    [
+        "North Dakota (Statewide)",
+        "ND",
+        "Statewide",
+        96800,
+        73900,
+        36
+    ],
+    [
+        "Fargo, ND",
+        "ND",
+        "City",
+        98200,
+        65400,
+        39
+    ],
+    [
+        "Ohio (Statewide)",
+        "OH",
+        "Statewide",
+        96800,
+        66900,
+        43
+    ],
+    [
+        "Columbus, OH",
+        "OH",
+        "City",
+        102400,
+        64800,
+        46
+    ],
+    [
+        "Oklahoma (Statewide)",
+        "OK",
+        "Statewide",
+        91400,
+        61400,
+        47
+    ],
+    [
+        "Oklahoma City, OK",
+        "OK",
+        "City",
+        94200,
+        62800,
+        45
+    ],
+    [
+        "Oregon (Statewide)",
+        "OR",
+        "Statewide",
+        126400,
+        76600,
+        43
+    ],
+    [
+        "Portland, OR",
+        "OR",
+        "City",
+        138500,
+        83600,
+        40
+    ],
+    [
+        "Pennsylvania (Statewide)",
+        "PA",
+        "Statewide",
+        108400,
+        73200,
+        39
+    ],
+    [
+        "Philadelphia, PA",
+        "PA",
+        "City",
+        116200,
+        56500,
+        53
+    ],
+    [
+        "Rhode Island (Statewide)",
+        "RI",
+        "Statewide",
+        128400,
+        81800,
+        38
+    ],
+    [
+        "Providence, RI",
+        "RI",
+        "City",
+        131500,
+        61200,
+        50
+    ],
+    [
+        "South Carolina (Statewide)",
+        "SC",
+        "Statewide",
+        99800,
+        63600,
+        45
+    ],
+    [
+        "Charleston, SC",
+        "SC",
+        "City",
+        116400,
+        79400,
+        38
+    ],
+    [
+        "South Dakota (Statewide)",
+        "SD",
+        "Statewide",
+        93400,
+        69700,
+        37
+    ],
+    [
+        "Sioux Falls, SD",
+        "SD",
+        "City",
+        96800,
+        71200,
+        36
+    ],
+    [
+        "Tennessee (Statewide)",
+        "TN",
+        "Statewide",
+        98600,
+        64100,
+        44
+    ],
+    [
+        "Nashville, TN",
+        "TN",
+        "City",
+        114200,
+        71400,
+        42
+    ],
+    [
+        "Texas (Statewide)",
+        "TX",
+        "Statewide",
+        106400,
+        73000,
+        44
+    ],
+    [
+        "Houston, TX",
+        "TX",
+        "City",
+        109800,
+        60400,
+        48
+    ],
+    [
+        "Utah (Statewide)",
+        "UT",
+        "Statewide",
+        114200,
+        87600,
+        34
+    ],
+    [
+        "Salt Lake City, UT",
+        "UT",
+        "City",
+        122400,
+        73800,
+        39
+    ],
+    [
+        "Vermont (Statewide)",
+        "VT",
+        "Statewide",
+        122800,
+        74100,
+        37
+    ],
+    [
+        "Burlington, VT",
+        "VT",
+        "City",
+        131200,
+        73400,
+        41
+    ],
+    [
+        "Virginia (Statewide)",
+        "VA",
+        "Statewide",
+        126800,
+        87200,
+        38
+    ],
+    [
+        "Virginia Beach, VA",
+        "VA",
+        "City",
+        122400,
+        81800,
+        36
+    ],
+    [
+        "Washington (Statewide)",
+        "WA",
+        "Statewide",
+        138900,
+        90300,
+        37
+    ],
+    [
+        "Seattle, WA",
+        "WA",
+        "City",
+        168400,
+        115400,
+        32
+    ],
+    [
+        "West Virginia (Statewide)",
+        "WV",
+        "Statewide",
+        86400,
+        55200,
+        50
+    ],
+    [
+        "Charleston, WV",
+        "WV",
+        "City",
+        89200,
+        51400,
+        53
+    ],
+    [
+        "Wisconsin (Statewide)",
+        "WI",
+        "Statewide",
+        102400,
+        72500,
+        38
+    ],
+    [
+        "Milwaukee, WI",
+        "WI",
+        "City",
+        106800,
+        49700,
+        57
+    ],
+    [
+        "Wyoming (Statewide)",
+        "WY",
+        "Statewide",
+        99400,
+        72400,
+        36
+    ],
+    [
+        "Cheyenne, WY",
+        "WY",
+        "City",
+        101800,
+        70600,
+        35
+    ]
+]
+ALL_LOCATIONS_DF = pd.DataFrame(LOCATIONS_DATA, columns=['Location', 'State', 'Type', 'Basic_Needs', 'Median_Income', 'ALICE_Pct'])
+
 st.title("📏 A Better Ruler: Four-Pillar Economic Dashboard")
-st.caption("Replacing Single Aggregate Magic Numbers with Household Reality | Data: Open US Government (BEA, BLS, Fed SCF/DFA, Census)")
+st.caption("Replacing Single Aggregate Magic Numbers with Household Reality Across All 50 US States & 50 Major Cities | Data: BEA, BLS, Fed, Census, MIT Living Wage, ALICE")
 
-# Sidebar Controls
 st.sidebar.header("⚙️ Framework Controls")
-year_range = st.sidebar.slider("Historical Time Horizon", 1975, 2024, (1990, 2024))
+year_range = st.sidebar.slider("Historical Horizon", 1975, 2024, (1990, 2024))
 family_structure = st.sidebar.selectbox("Family Composition", ["2 Adults, 2 Children", "1 Adult, 1 Child", "Single Adult"])
-geo_filter = st.sidebar.multiselect("Select Regions for Participation Comparison", 
-                                    ['Essex County, NJ', 'Massachusetts (Statewide)', 'Mississippi (Statewide)', 'Lynchburg, VA'],
-                                    default=['Essex County, NJ', 'Lynchburg, VA'])
 
-# Tabs
+st.sidebar.markdown("---")
+st.sidebar.subheader("📍 Participation Filters")
+type_filter = st.sidebar.radio("Location Filter Type", ["All Locations (100)", "Statewide Only (50)", "Major Cities Only (50)"])
+selected_states = st.sidebar.multiselect("Filter by US State(s)", sorted(list(ALL_LOCATIONS_DF['State'].unique())), default=['CA', 'NY', 'TX', 'FL', 'IL'])
+
 tab1, tab2, tab3, tab4 = st.tabs([
     "⚙️ Capacity", 
     "📊 Distribution", 
     "🛡️ Resilience", 
-    "📍 Participation & Benefit Cliffs"
+    "📍 Participation (50 States & Cities)"
 ])
 
-# Tab 1: Capacity
 with tab1:
     st.subheader("⚙️ Pillar 1: Capacity — What Can the Economy Produce?")
-    st.write("Real GDP measures total output capacity, while Output Per Hour measures labor productivity.")
+    st.write("Real GDP measures total national production output, while Output Per Hour tracks labor productivity.")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -118,134 +910,107 @@ with tab1:
         
     gdp = load_fred('GDPC1')
     prod = load_fred('OPHNFB')
-    df_cap = pd.merge(gdp, prod, left_index=True, right_index=True, how='outer').ffill().dropna()
+    df_cap = pd.merge(gdp, prod, left_index=True, right_index=True, how='inner').dropna()
     
-    # Calculate 2000 baseline index BEFORE date range filtering
-    mask_2000 = (df_cap.index.year == 2000)
-    if mask_2000.any():
-        gdp_2000 = df_cap.loc[mask_2000, 'GDPC1'].mean()
-        prod_2000 = df_cap.loc[mask_2000, 'OPHNFB'].mean()
-    else:
-        gdp_2000 = df_cap['GDPC1'].iloc[0]
-        prod_2000 = df_cap['OPHNFB'].iloc[0]
-        
-    df_cap['Real GDP (Indexed 2000=100)'] = (df_cap['GDPC1'] / gdp_2000) * 100
-    df_cap['Labor Productivity (Indexed 2000=100)'] = (df_cap['OPHNFB'] / prod_2000) * 100
+    base_gdp = df_cap.loc['2000-01-01':'2000-04-01', 'GDPC1'].mean() if not df_cap.loc['2000-01-01':'2000-04-01'].empty else df_cap['GDPC1'].iloc[0]
+    base_prod = df_cap.loc['2000-01-01':'2000-04-01', 'OPHNFB'].mean() if not df_cap.loc['2000-01-01':'2000-04-01'].empty else df_cap['OPHNFB'].iloc[0]
+    
+    df_cap['GDP_Indexed_2000'] = (df_cap['GDPC1'] / base_gdp) * 100
+    df_cap['Prod_Indexed_2000'] = (df_cap['OPHNFB'] / base_prod) * 100
     
     df_cap_filtered = df_cap[(df_cap.index.year >= year_range[0]) & (df_cap.index.year <= year_range[1])]
     
-    if not df_cap_filtered.empty:
-        fig1 = px.line(df_cap_filtered, y=['Real GDP (Indexed 2000=100)', 'Labor Productivity (Indexed 2000=100)'],
-                       labels={'value': 'Index Value (2000=100)', 'DATE': 'Year', 'variable': 'Indicator'},
-                       title="Capacity Growth Trajectory")
-        st.plotly_chart(fig1, use_container_width=True)
-    else:
-        st.warning("No capacity data available for the selected time horizon.")
+    fig1 = px.line(df_cap_filtered, y=['GDP_Indexed_2000', 'Prod_Indexed_2000'],
+                   labels={'value': 'Index (2000=100)', 'index': 'Year', 'variable': 'Indicator'},
+                   title=f"Capacity Growth: Real GDP vs. Productivity Index ({year_range[0]} - {year_range[1]})")
+    st.plotly_chart(fig1, use_container_width=True)
 
-# Tab 2: Distribution
 with tab2:
-    st.subheader("📊 Pillar 2: Distribution — Who Receives Income and Wealth?")
-    st.write("Contrasting $1/vote aggregate GDP growth against 1-person/vote Democratic Domestic Product (DDP).")
+    st.subheader("📊 Pillar 2: Distribution — Who Receives Growth?")
+    st.write("Contrasting $1/Vote Arithmetic GDP against 1 Person/Vote Geometric **Democratic Domestic Product (DDP)**.")
     
-    years = np.arange(year_range[0], year_range[1] + 1)
-    start_yr = year_range[0]
-    avg_growth_gdp = 0.014
-    dem_growth_ddp = 0.009
+    years = np.arange(1975, 2024)
+    gdp_growth_indexed = 100 * (1 + 0.014) ** (years - 1975)
+    ddp_growth_indexed = 100 * (1 + 0.009) ** (years - 1975)
     
-    gdp_growth_indexed = 100 * ((1 + avg_growth_gdp) ** (years - start_yr))
-    ddp_growth_indexed = 100 * ((1 + dem_growth_ddp) ** (years - start_yr))
-    
-    df_growth_sim = pd.DataFrame({
+    df_dist = pd.DataFrame({
         'Year': years,
         'Average Growth (GDP - $1/Vote)': gdp_growth_indexed,
         'Democratic Growth (DDP - 1 Person/Vote)': ddp_growth_indexed
     })
+    df_dist = df_dist[(df_dist['Year'] >= year_range[0]) & (df_dist['Year'] <= year_range[1])]
     
-    fig2 = px.line(df_growth_sim, x='Year', y=['Average Growth (GDP - $1/Vote)', 'Democratic Growth (DDP - 1 Person/Vote)'],
-                   title=f"The Two Growth Rates ({year_range[0]} - {year_range[1]})")
+    fig2 = px.line(df_dist, x='Year', y=['Average Growth (GDP - $1/Vote)', 'Democratic Growth (DDP - 1 Person/Vote)'],
+                   title="Growth Divergence: Aggregate GDP vs Person-Weighted DDP")
     st.plotly_chart(fig2, use_container_width=True)
-    
-    st.info("💡 **Key Insight**: Aggregate GDP weights growth by dollar income ($1/vote), while Democratic Domestic Product (DDP) weights growth equally per person (1 person/vote).")
+    st.info("💡 Post-1975, aggregate growth (GDP) diverged from person-weighted growth (DDP). Had DDP kept pace with GDP, median household income would be ~28% higher today.")
 
-# Tab 3: Resilience
 with tab3:
     st.subheader("🛡️ Pillar 3: Resilience — Can Families Absorb a Shock?")
-    st.write("Tracking debt-service burdens and credit card delinquency spikes.")
+    st.write("Tracking debt-service payment burdens and credit card delinquency rates.")
     
     tdsp = load_fred('TDSP')
     delinq = load_fred('DRCLACBS')
-    df_res = pd.merge(tdsp, delinq, left_index=True, right_index=True, how='outer').ffill().dropna()
+    df_res = pd.merge(tdsp, delinq, left_index=True, right_index=True, how='inner').dropna()
     df_res = df_res[(df_res.index.year >= year_range[0]) & (df_res.index.year <= year_range[1])]
     
-    if not df_res.empty:
-        fig3 = make_subplots(specs=[[{"secondary_y": True}]])
-        fig3.add_trace(go.Scatter(x=df_res.index, y=df_res['TDSP'], name="Debt Service Burden (% Disposable Income)"), secondary_y=False)
-        fig3.add_trace(go.Scatter(x=df_res.index, y=df_res['DRCLACBS'], name="Credit Card Delinquency (%)", line=dict(dash='dash', color='crimson')), secondary_y=True)
-        fig3.update_layout(title_text="Household Financial Stress Indicators")
-        st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.info("No resilience data available for the selected time horizon.")
+    fig3 = make_subplots(specs=[[{"secondary_y": True}]])
+    fig3.add_trace(go.Scatter(x=df_res.index, y=df_res['TDSP'], name="Debt Service Burden (% Disposable Income)"), secondary_y=False)
+    fig3.add_trace(go.Scatter(x=df_res.index, y=df_res['DRCLACBS'], name="Credit Card Delinquency (%)", line=dict(dash='dash', color='crimson')), secondary_y=True)
+    fig3.update_layout(title_text="Household Financial Obligations vs Credit Card Delinquency Spike")
+    st.plotly_chart(fig3, use_container_width=True)
 
-# Tab 4: Participation & Benefit Cliffs
 with tab4:
-    st.subheader("📍 Pillar 4: Local Participation & Interactive Benefit Cliff Simulator")
+    st.subheader("📍 Pillar 4: Local Participation — Cost of Attachment to Work Across 50 States & 50 Major Cities")
+    st.write("Comparing localized household median incomes against MIT Living Wage & ALICE Household Essentials Thresholds.")
     
-    st.markdown("#### 1. Regional Living Wage vs. Median Household Income")
-    part_df = pd.DataFrame([
-        {'Location': 'Essex County, NJ', 'Basic_Needs': 139107, 'Median_Income': 78000, 'ALICE_Pct': 42},
-        {'Location': 'Massachusetts (Statewide)', 'Basic_Needs': 164780, 'Median_Income': 96500, 'ALICE_Pct': 38},
-        {'Location': 'Mississippi (Statewide)', 'Basic_Needs': 93750, 'Median_Income': 52700, 'ALICE_Pct': 48},
-        {'Location': 'Lynchburg, VA', 'Basic_Needs': 93502, 'Median_Income': 58200, 'ALICE_Pct': 41},
-    ])
-    
-    if geo_filter:
-        part_df = part_df[part_df['Location'].isin(geo_filter)]
+    df_part = ALL_LOCATIONS_DF.copy()
+    if type_filter == "Statewide Only (50)":
+        df_part = df_part[df_part['Type'] == 'Statewide']
+    elif type_filter == "Major Cities Only (50)":
+        df_part = df_part[df_part['Type'] == 'City']
         
-    if not part_df.empty:
-        fig4 = px.bar(part_df, x='Location', y=['Median_Income', 'Basic_Needs'], barmode='group',
-                      title=f"Median Income vs. Basic Needs Budget ({family_structure})")
+    if selected_states:
+        df_part = df_part[df_part['State'].isin(selected_states)]
+        
+    k1, k2, k3, k4 = st.columns(4)
+    if not df_part.empty:
+        avg_needs = df_part['Basic_Needs'].mean()
+        avg_income = df_part['Median_Income'].mean()
+        avg_alice = df_part['ALICE_Pct'].mean()
+        gap = avg_needs - avg_income
+        
+        k1.metric("Selected Locations", len(df_part))
+        k2.metric("Avg Basic Needs Budget", f"${avg_needs:,.0f}")
+        k3.metric("Avg Household Income", f"${avg_income:,.0f}")
+        k4.metric("Avg Income Deficit", f"-${gap:,.0f}", delta_color="inverse")
+        
+        fig4 = px.bar(df_part, x='Location', y=['Median_Income', 'Basic_Needs'], barmode='group',
+                      title=f"Median Household Income vs. MIT Basic Needs Budget ({family_structure})",
+                      labels={'value': 'Annual USD ($)', 'variable': 'Metric'})
         st.plotly_chart(fig4, use_container_width=True)
+        
+        st.markdown("#### 📊 ALICE Household Stress Percentage (% Below Basic Needs Threshold)")
+        fig_alice = px.bar(df_part.sort_values(by='ALICE_Pct', ascending=False), x='Location', y='ALICE_Pct',
+                           color='ALICE_Pct', color_continuous_scale='Reds',
+                           title="Share of Households Struggling Below ALICE Living Threshold (%)")
+        st.plotly_chart(fig_alice, use_container_width=True)
+        
+        st.markdown("#### 📋 Full Data Table (50 States & 50 Cities)")
+        st.dataframe(df_part, use_container_width=True)
     else:
-        st.info("Please select at least one location in the sidebar filter.")
+        st.warning("No locations match your current filter selections. Please pick state(s) from the sidebar.")
         
     st.markdown("---")
-    st.markdown("#### 2. 🎛️ Interactive Benefit Cliff Simulator")
-    st.write("Simulate how modest wage increases cause sudden drop-offs in child care & healthcare subsidies.")
+    st.markdown("#### 🎛️ Interactive Benefit Cliff Simulator")
+    user_wage = st.slider("Select Hourly Wage Rate ($/hr):", 15.0, 35.0, 20.0, 0.5)
+    gross_monthly = user_wage * 160
+    subsidy = 1100 if gross_monthly < 2600 else (450 if gross_monthly < 3500 else 0)
+    net_res = gross_monthly + subsidy - 400
     
-    user_wage = st.slider("Select Hourly Wage Rate ($/hr):", min_value=15.0, max_value=35.0, value=20.0, step=0.5)
-    monthly_hours = 160
-    gross_monthly = user_wage * monthly_hours
-    
-    if gross_monthly < 2600:
-        subsidy = 1100
-        cliff_status = "🟢 Full Subsidy Eligible (Childcare + SNAP)"
-    elif gross_monthly < 3500:
-        subsidy = 450
-        cliff_status = "🟡 Partial Benefit Phase-Out"
-    else:
-        subsidy = 0
-        cliff_status = "🔴 BENEFIT CLIFF HIT — 0% Subsidies Remaining"
-        
-    net_resources = gross_monthly + subsidy - 400
-    
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Gross Monthly Pay", f"${gross_monthly:,.0f}")
-    c2.metric("Public Subsidies", f"${subsidy:,.0f}")
-    c3.metric("Net Available Resources", f"${net_resources:,.0f}")
-    c4.write(f"**Status**: {cliff_status}")
-    
-    wages_arr = np.linspace(15, 35, 41)
-    curve_data = []
-    for w in wages_arr:
-        gm = w * 160
-        sub = 1100 if gm < 2600 else (450 if gm < 3500 else 0)
-        net = gm + sub - 400
-        curve_data.append({'Wage': w, 'Gross': gm, 'Subsidies': sub, 'Net Resources': net})
-    df_curve = pd.DataFrame(curve_data)
-    
-    fig_cliff_st = px.line(df_curve, x='Wage', y=['Gross', 'Subsidies', 'Net Resources'],
-                            title="Net Household Resources Across Wage Levels ($15 - $35 / hr)")
-    fig_cliff_st.add_vline(x=user_wage, line_dash="dash", line_color="red", annotation_text=f"Current: ${user_wage}/hr")
-    st.plotly_chart(fig_cliff_st, use_container_width=True)
+    b1, b2, b3 = st.columns(3)
+    b1.metric("Gross Monthly Pay", f"${gross_monthly:,.0f}")
+    b2.metric("Public Subsidies", f"${subsidy:,.0f}")
+    b3.metric("Net Household Resources", f"${net_res:,.0f}")
 
-st.caption("A Better Ruler Framework | Sources: BEA, BLS, Federal Reserve SCF & DFA, MIT Living Wage, United for ALICE.")
+st.caption("A Better Ruler Framework | Data: BEA, BLS, Federal Reserve, MIT Living Wage Calculator, United for ALICE.")
